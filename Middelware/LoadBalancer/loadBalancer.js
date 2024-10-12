@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const axios = require('axios');
 const WebSocket = require('ws');
 const multer = require('multer');
@@ -13,6 +14,12 @@ let currentIndex = 0;
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+
+app.use(cors({
+  origin: 'http://localhost:8080',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
 
 const fetchInstances = async () => {
   try {
@@ -37,81 +44,80 @@ const getNextInstance = () => {
 };
 
 app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
-    const instance = getNextInstance();
-  
-    if (!instance) {
-      return res.status(503).send('No hay instancias disponibles');
-    }
-  
-    if (!req.file) {
-      return res.status(400).send('No se ha subido ninguna imagen');
-    }
-  
-    const watermark = req.body.watermark;
-  
-    if (!watermark) {
-      return res.status(400).send('No se ha proporcionado ningún texto para la marca de agua');
-    }
-  
-    const formData = new FormData();
-    formData.append('image', req.file.buffer, req.file.originalname);
-    formData.append('watermark', watermark);
-  
-    try {
-      const response = await axios.post(
-        `http://${instance.ip}:${instance.port}/marcar`,
-        formData,
-        {
-          headers: {
-            ...formData.getHeaders(), 
-            'Content-Length': formData.getLengthSync()
-          },
-          responseType: 'arraybuffer'
-        }
-      );
-      res.set('Content-Type', 'image/png');
-      res.send(Buffer.from(response.data));
-    } catch (error) {
-      console.error('Error al redirigir la solicitud:', error.message);
-      res.status(500).send('Error al procesar la imagen');
-    }
-  });
-  
-  const connectWebSocket = () => {
-    const ws = new WebSocket(`ws://${discoveryServerUrl.replace('http://', '')}`);
-  
-    ws.on('open', () => {
-      console.log('Conectado al ServerRegistry vía WebSocket');
-    });
-  
-    ws.on('message', (data) => {
-      const parsedData = JSON.parse(data);
-  
-      if (Array.isArray(parsedData.data)) {
-        instances = parsedData.data.map(instance => ({
-          ip: instance.ip,
-          port: instance.port
-        }));
+  const instance = getNextInstance();
 
-      } else if (typeof parsedData.data === 'object') {
-        instances = [ {
-          ip: parsedData.data.ip,
-          port: parsedData.data.port
-        }];
+  if (!instance) {
+    return res.status(503).send('No hay instancias disponibles');
+  }
+
+  if (!req.file) {
+    return res.status(400).send('No se ha subido ninguna imagen');
+  }
+
+  const watermark = req.body.watermark;
+
+  if (!watermark) {
+    return res.status(400).send('No se ha proporcionado ningún texto para la marca de agua');
+  }
+
+  const formData = new FormData();
+  formData.append('image', req.file.buffer, req.file.originalname);
+  formData.append('watermark', watermark);
+
+  try {
+    const response = await axios.post(
+      `http://${instance.ip}:${instance.port}/marcar`,
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(), 
+          'Content-Length': formData.getLengthSync()
+        },
+        responseType: 'arraybuffer'
       }
-      console.log('Instancias actualizadas:', instances);
-    });
-  
-    ws.on('close', () => {
-      console.log('Conexión WebSocket cerrada, intentando reconectar...');
-      setTimeout(connectWebSocket, 3000);
-    });
-  
-    ws.on('error', (error) => {
-      console.error('Error en WebSocket:', error.message);
-    });
-  };
-  
+    );
+    res.set('Content-Type', 'image/png');
+    res.send(Buffer.from(response.data));
+  } catch (error) {
+    console.error('Error al redirigir la solicitud:', error.message);
+    res.status(500).send('Error al procesar la imagen');
+  }
+});
+
+const connectWebSocket = () => {
+  const ws = new WebSocket(discoveryServerUrl.replace('http://', 'ws://'));
+
+  ws.on('open', () => {
+    console.log('Conectado al ServerRegistry vía WebSocket');
+  });
+
+  ws.on('message', (data) => {
+    const parsedData = JSON.parse(data);
+
+    if (Array.isArray(parsedData.data)) {
+      instances = parsedData.data.map(instance => ({
+        ip: instance.ip,
+        port: instance.port
+      }));
+    } else if (typeof parsedData.data === 'object') {
+      instances = [{
+        ip: parsedData.data.ip,
+        port: parsedData.data.port
+      }];
+    }
+    console.log('Instancias actualizadas:', instances);
+  });
+
+  ws.on('close', () => {
+    console.log('Conexión WebSocket cerrada, intentando reconectar...');
+    setTimeout(connectWebSocket, 3000);
+  });
+
+  ws.on('error', (error) => {
+    console.error('Error en WebSocket:', error.message);
+  });
+};
+
 (async () => {
   await fetchInstances();
   connectWebSocket();
