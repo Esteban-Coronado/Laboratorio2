@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor</title>
+  
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+  <!-- Enlace a tu archivo CSS -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Monitor de Estado de Instancias</h1>
+    
+    <div id="instances">
+      <h2>Instancias Activas</h2>
+      <table class="table table-dark">
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th>Puerto</th>
+          </tr>
+        </thead>
+        <tbody id="instanceTable"></tbody>
+      </table>
+    </div>
+
+    <div id="logs">
+      <h2>Logs de Peticiones</h2>
+      <table class="table table-dark">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Instancia</th>
+            <th>Endpoint</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="logTable"></tbody>
+      </table>
+    </div>
+    
+    <!-- Canvas for Chart.js -->
+    <canvas id="statusChart"></canvas>
+  </div>
+
+  <script>
+    const socket = io();
+    const instanceStatus = {}; // Objeto para almacenar el estado de las instancias
+
+    // Actualizar la tabla de instancias en tiempo real
+    socket.on('instances', (instances) => {
+      const instanceTable = document.getElementById('instanceTable');
+      instanceTable.innerHTML = '';
+      instances.forEach(instance => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${instance.ip}</td><td>${instance.port}</td>`;
+        instanceTable.appendChild(row);
+        instanceStatus[`${instance.ip}:${instance.port}`] = true; // Marcar instancia como activa
+      });
+      updateChart(); // Actualizar gráfica
+    });
+
+    // Actualizar la tabla de logs en tiempo real
+    socket.on('logs', (logs) => {
+      const logTable = document.getElementById('logTable');
+      logTable.innerHTML = '';
+      logs.forEach(log => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${new Date(log.timestamp).toLocaleString()}</td>
+          <td>${log.instance}</td>
+          <td>${log.endpoint}</td>
+          <td>${log.status}</td>`;
+        logTable.appendChild(row);
+      });
+    });
+
+    // Configuración de la gráfica
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    const statusChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Instancias Activas', 'Instancias Inactivas'],
+        datasets: [{
+          label: 'Estado de Instancias',
+          data: [0, 0],
+          backgroundColor: ['#00ff00', '#ff0000'],
+          borderColor: ['#00cc00', '#cc0000'],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    // Actualizar la gráfica según el estado de las instancias
+    function updateChart() {
+      const activeCount = Object.keys(instanceStatus).filter(key => instanceStatus[key]).length;
+      const inactiveCount = Object.keys(instanceStatus).length - activeCount;
+      
+      statusChart.data.datasets[0].data = [activeCount, inactiveCount];
+      statusChart.update();
+    }
+  </script>
+</body>
+</html>
