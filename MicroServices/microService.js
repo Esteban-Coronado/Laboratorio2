@@ -25,7 +25,7 @@ const processImageWithWatermark = async (imageBuffer, watermarkText) => {
 
         const watermarkSVG = `
             <svg width="${imageWidth}" height="${imageHeight}">
-                <text x="${imageWidth - margin}" y="${imageHeight - margin}" font-size="30" fill="green" text-anchor="end" alignment-baseline="baseline">${watermarkText}</text>
+                <text x="${imageWidth - margin}" y="${imageHeight - margin}" font-size="50" fill="green" text-anchor="end" alignment-baseline="baseline">${watermarkText}</text>
             </svg>`;
 
         return await image
