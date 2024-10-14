@@ -1,6 +1,4 @@
 const express = require('express');
-const axios = require('axios');
-const os = require('os');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const sharp = require('sharp');
@@ -8,7 +6,6 @@ const sharp = require('sharp');
 dotenv.config();
 
 const app = express();
-const ServerRegistry = process.env.SERVER_REGISTRY_URL;
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -60,34 +57,8 @@ app.post('/marcar', upload.single('image'), async (req, res) => {
     }
 });
 
-const getIpAddress = () => {
-    const interfaces = os.networkInterfaces();
-    for (const interfaceName in interfaces) {
-        for (const iface of interfaces[interfaceName]) {
-            if (iface.family === 'IPv4' && !iface.internal) {
-                return iface.address;
-            }
-        }
-    }
-    return '0.0.0.0';
-};
-
 const port = process.env.MICROSERVICE_PORT;
-
-const registerInstance = async () => {
-    const ipAddress = getIpAddress();
-    try {
-        const response = await axios.post(`${ServerRegistry}/register`, {
-            ip: ipAddress,
-            port: port
-        });
-        console.log(`Microservice registrado en Discovery Server: IP ${ipAddress}, Puerto ${port}`);
-    } catch (error) {
-        console.error('Error al registrar la instancia en el Discovery Server:', error.message);
-    }
-};
 
 app.listen(port, async () => { 
     console.log(`Microservice escuchando en el puerto ${port}`);
-    await registerInstance();
 });

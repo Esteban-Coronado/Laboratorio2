@@ -25,20 +25,20 @@ const notifyClients = (instance) => {
 };
 
 app.post('/register', (req, res) => {
-  const { ip, port } = req.body;
+  const { host, port } = req.body; 
   
-  if (!ip || !port) {
-    return res.status(400).send('Faltan campos IP o Puerto');
+  if (!host || !port) {
+    return res.status(400).send('Faltan campos host o Puerto');
   }
 
-  /*const exists = instances.some(instance => instance.ip === ip && instance.port === port);
+  /*const exists = instances.some(instance => instance.host === host && instance.port === port);
   if (exists) {
     return res.status(400).send('La instancia ya está registrada');
   }*/
 
-  const newInstance = { ip, port };
+  const newInstance = { host, port }; 
   instances.push(newInstance);
-  console.log(`Instancia registrada: ${ip}:${port}`);
+  console.log(`Instancia registrada: ${host}:${port}`); 
   
   notifyClients(newInstance);
   
