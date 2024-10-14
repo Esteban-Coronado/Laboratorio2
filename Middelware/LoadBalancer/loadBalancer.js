@@ -25,7 +25,7 @@ const fetchInstances = async () => {
   try {
     const response = await axios.get(`${discoveryServerUrl}/instances`);
     instances = response.data.map(instance => ({
-      ip: instance.ip,
+      host: instance.host, 
       port: instance.port
     }));
     console.log('Instancias cargadas:', instances);
@@ -66,11 +66,11 @@ app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
 
   try {
     const response = await axios.post(
-      `http://${instance.ip}:${instance.port}/marcar`,
+      `http://${instance.host}:${instance.port}/marcar`,
       formData,
       {
         headers: {
-          ...formData.getHeaders(), 
+          ...formData.getHeaders(),
           'Content-Length': formData.getLengthSync()
         },
         responseType: 'arraybuffer'
@@ -96,12 +96,12 @@ const connectWebSocket = () => {
 
     if (Array.isArray(parsedData.data)) {
       instances = parsedData.data.map(instance => ({
-        ip: instance.ip,
+        host: instance.host, 
         port: instance.port
       }));
     } else if (typeof parsedData.data === 'object') {
       instances = [{
-        ip: parsedData.data.ip,
+        host: parsedData.data.host, 
         port: parsedData.data.port
       }];
     }
