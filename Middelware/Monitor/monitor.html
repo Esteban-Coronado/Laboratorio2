@@ -19,7 +19,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Monitor de Estado de Instancias</h1>
+    <h1>Dashboard</h1>
     
     <div id="instances">
       <h2>Instancias Activas</h2>
@@ -51,6 +51,9 @@
     
     <!-- Canvas for Chart.js -->
     <canvas id="statusChart"></canvas>
+
+    <!-- Botón para lanzar instancia -->
+    <button class="btn-lanzar">Lanzar Instancia</button>
   </div>
 
   <script>
@@ -76,7 +79,7 @@
       logTable.innerHTML = '';
       logs.forEach(log => {
         const row = document.createElement('tr');
-        row.innerHTML = `
+        row.innerHTML = ` 
           <td>${new Date(log.timestamp).toLocaleString()}</td>
           <td>${log.instance}</td>
           <td>${log.endpoint}</td>

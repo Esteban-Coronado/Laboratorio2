@@ -67,20 +67,17 @@ app.post('/log', (req, res) => {
     status
   };
 
-  addLog(logEntry); // Añadimos el log
+  addLog(logEntry); 
   res.status(200).send('Log registrado');
 });
 
-// Servir la interfaz de monitorización en tiempo real
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/monitor.html');
 });
 
-// Servidor Socket.IO para emitir actualizaciones a los clientes conectados
 io.on('connection', (socket) => {
   console.log('Nuevo cliente conectado');
   
-  // Enviar el estado actual de las instancias y los logs al nuevo cliente
   socket.emit('instances', instances);
   socket.emit('logs', logs);
 
@@ -89,7 +86,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Iniciar el servidor de monitorización
+
 const port = process.env.MONITOR_PORT || 5000;
 server.listen(port, () => {
   console.log(`Monitor escuchando en el puerto ${port}`);
