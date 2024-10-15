@@ -5,12 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monitor</title>
   
+  <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 
+  <!-- Enlace a tu archivo CSS -->
   <link rel="stylesheet" href="styles.css">
 
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
+  <!-- Socket.IO -->
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
@@ -45,15 +49,18 @@
       </table>
     </div>
     
+    <!-- Canvas for Chart.js -->
     <canvas id="statusChart"></canvas>
 
+    <!-- Botón para lanzar instancia -->
     <button class="btn-lanzar">Lanzar Instancia</button>
   </div>
 
   <script>
     const socket = io();
-    const instanceStatus = {}; 
+    const instanceStatus = {}; // Objeto para almacenar el estado de las instancias
 
+    // Actualizar la tabla de instancias en tiempo real
     socket.on('instances', (instances) => {
       const instanceTable = document.getElementById('instanceTable');
       instanceTable.innerHTML = '';
@@ -61,12 +68,12 @@
         const row = document.createElement('tr');
         row.innerHTML = `<td>${instance.ip}</td><td>${instance.port}</td>`;
         instanceTable.appendChild(row);
-        instanceStatus[`${instance.ip}:${instance.port}`] = true; 
+        instanceStatus[`${instance.ip}:${instance.port}`] = true; // Marcar instancia como activa
       });
-      updateChart();
+      updateChart(); // Actualizar gráfica
     });
 
-    
+    // Actualizar la tabla de logs en tiempo real
     socket.on('logs', (logs) => {
       const logTable = document.getElementById('logTable');
       logTable.innerHTML = '';
@@ -81,6 +88,7 @@
       });
     });
 
+    // Configuración de la gráfica
     const ctx = document.getElementById('statusChart').getContext('2d');
     const statusChart = new Chart(ctx, {
       type: 'bar',
@@ -103,6 +111,7 @@
       }
     });
 
+    // Actualizar la gráfica según el estado de las instancias
     function updateChart() {
       const activeCount = Object.keys(instanceStatus).filter(key => instanceStatus[key]).length;
       const inactiveCount = Object.keys(instanceStatus).length - activeCount;
