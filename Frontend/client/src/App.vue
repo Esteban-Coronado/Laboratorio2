@@ -72,13 +72,14 @@ export default {
       this.isSubmitting = true;
 
       try {
-        const response = await fetch('http://localhost:4000/enviar-marcar', {
+        const response = await fetch('http://192.168.137.128:4000/enviar-marcar', {
           method: 'POST',
           body: formData,
         });
 
         if (!response.ok) {
-          throw new Error(`Error en la subida de la imagen: ${response.statusText}`);
+          const errorText = await response.text();
+          throw new Error(`Error en la subida de la imagen: ${errorText}`);
         }
 
         const arrayBuffer = await response.arrayBuffer();

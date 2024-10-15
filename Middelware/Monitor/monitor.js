@@ -3,25 +3,25 @@ const http = require('http');
 const WebSocket = require('ws');
 const socketIo = require('socket.io');
 
-// Configuración del servidor Express
+
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server); // Inicializamos Socket.IO
+const io = socketIo(server); 
 
-const instances = [];  // Estado de las instancias
-let logs = [];         // Almacenamos los logs de las peticiones
+const instances = [];  
+let logs = [];         
 
 require('dotenv').config();
 
-// Middleware para procesar datos JSON en las solicitudes POST
+
 app.use(express.json());
 
-// Función para reconectar el WebSocket
+
 const connectWebSocket = () => {
   const serverRegistryUrl = process.env.SERVER_REGISTRY_URL.replace('http://', 'ws://');
   const ws = new WebSocket(serverRegistryUrl);
 
-  // Cuando el WebSocket recibe un mensaje del ServerRegistry, actualiza las instancias
+ 
   ws.on('message', (data) => {
     const parsedData = JSON.parse(data);
     instances.length = 0; // Limpiamos las instancias previas
