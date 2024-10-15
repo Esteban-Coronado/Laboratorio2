@@ -1,93 +1,161 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const socketIo = require('socket.io');
-
-// Configuración del servidor Express
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server); // Inicializamos Socket.IO
-
-const instances = [];  // Estado de las instancias
-let logs = [];         // Almacenamos los logs de las peticiones
-
 require('dotenv').config();
+const axios = require('axios');
+const WebSocket = require('ws');
+const Chart = require('chart.js/auto');
 
-// Middleware para procesar datos JSON en las solicitudes POST
-app.use(express.json());
+// Configuración de las variables de entorno
+const discoveryServerUrl = process.env.SERVER_REGISTRY_URL || 'http://localhost:6000';
 
-// Función para reconectar el WebSocket
-const connectWebSocket = () => {
-  const serverRegistryUrl = process.env.SERVER_REGISTRY_URL.replace('http://', 'ws://');
-  const ws = new WebSocket(serverRegistryUrl);
+// Elementos HTML para mostrar las instancias, los logs y la gráfica
+const instancesTable = document.getElementById('instancesTable');
+const healthLogsTable = document.getElementById('healthLogsTable');
+const statusChartElement = document.getElementById('statusChart').getContext('2d');
+const ws = new WebSocket(`ws://${discoveryServerUrl.replace(/^http/, 'ws')}`);
 
-  // Cuando el WebSocket recibe un mensaje del ServerRegistry, actualiza las instancias
-  ws.on('message', (data) => {
-    const parsedData = JSON.parse(data);
-    instances.length = 0; // Limpiamos las instancias previas
-    instances.push(...parsedData.data); // Actualizamos con las nuevas instancias
-
-    // Enviamos la actualización de instancias a todos los clientes conectados
-    io.emit('instances', instances);
-  });
-
-  // Cuando el WebSocket se cierra, reconecta automáticamente
-  ws.on('close', () => {
-    console.log('Conexión WebSocket cerrada, intentando reconectar...');
-    setTimeout(connectWebSocket, 3000); // Intentar reconectar en 3 segundos
-  });
-
-  ws.on('error', (error) => {
-    console.error('Error en WebSocket:', error.message);
-  });
+// Variables para las instancias, los logs y la gráfica
+let instances = [];
+let healthLogs = [];
+let chartData = {
+  labels: [], // Horas de los health checks
+  datasets: []
 };
 
-// Iniciar la conexión WebSocket
-connectWebSocket();
-
-// Función para registrar los logs de peticiones
-const addLog = (log) => {
-  logs.push(log);
-  if (logs.length > 100) logs.shift(); // Limita el número de logs a 100
-  io.emit('logs', logs); // Emitimos los logs actualizados a los clientes
-};
-
-// Escuchar eventos del LoadBalancer para monitorear las peticiones
-app.post('/log', (req, res) => {
-  const { instance, endpoint, status } = req.body;
-
-  if (!instance || !endpoint || !status) {
-    return res.status(400).send('Faltan datos para el log');
+// Crear el gráfico de Chart.js
+const statusChart = new Chart(statusChartElement, {
+  type: 'line',
+  data: chartData,
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: true
+      }
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: 'minute',
+          displayFormats: {
+            minute: 'HH:mm'
+          }
+        }
+      }
+    }
   }
-
-  const logEntry = {
-    timestamp: new Date(),
-    instance,
-    endpoint,
-    status
-  };
-
-  addLog(logEntry); 
-  res.status(200).send('Log registrado');
 });
 
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/monitor.html');
-});
+// Obtener las instancias registradas desde el servidor de registro
+async function fetchInstances() {
+  try {
+    const response = await axios.get(`${discoveryServerUrl}/instances`);
+    instances = response.data;
+    updateInstancesTable();
+    updateChartDatasets();
+  } catch (error) {
+    console.error('Error al obtener instancias:', error);
+  }
+}
 
-io.on('connection', (socket) => {
-  console.log('Nuevo cliente conectado');
-  
-  socket.emit('instances', instances);
-  socket.emit('logs', logs);
+// Actualizar la tabla de instancias
+function updateInstancesTable() {
+  instancesTable.innerHTML = ''; // Limpiar la tabla
 
-  socket.on('disconnect', () => {
-    console.log('Cliente desconectado');
+  instances.forEach(instance => {
+    const row = instancesTable.insertRow();
+    const cellHost = row.insertCell(0);
+    const cellPort = row.insertCell(1);
+
+    cellHost.textContent = instance.host;
+    cellPort.textContent = instance.port;
+
+    // Realizar el health check para cada instancia
+    performHealthCheck(instance);
   });
-});
+}
 
+// Realizar un health check para cada instancia
+async function performHealthCheck(instance) {
+  const { host, port } = instance;
+  try {
+    const response = await axios.get(`http://${host}:${port}/healthcheck`);
+    logHealthCheck(instance, response.data, true);  // Instancia activa
+  } catch (error) {
+    console.error(`Error en healthcheck para ${host}:${port}`, error);
+    logHealthCheck(instance, { status: 'Inactivo', error: error.message }, false);  // Instancia inactiva
+  }
+}
 
-const port = process.env.MONITOR_PORT || 5000;
-server.listen(port, () => {
-  console.log(`Monitor escuchando en el puerto ${port}`);
-});
+// Registrar el resultado de un health check en la tabla de logs
+function logHealthCheck(instance, data, isActive) {
+  const row = healthLogsTable.insertRow();
+  const cellTime = row.insertCell(0);
+  const cellHost = row.insertCell(1);
+  const cellPort = row.insertCell(2);
+  const cellStatus = row.insertCell(3);
+  const cellMethod = row.insertCell(4);
+  const cellUrl = row.insertCell(5);
+  const cellPayload = row.insertCell(6);
+
+  const now = new Date().toLocaleString();
+  cellTime.textContent = now;
+  cellHost.textContent = instance.host;
+  cellPort.textContent = instance.port;
+  cellStatus.textContent = data.status || 'Inactivo';
+  cellMethod.textContent = data.method || 'N/A';
+  cellUrl.textContent = data.url || 'N/A';
+  cellPayload.textContent = JSON.stringify(data.payload) || 'N/A';
+
+  healthLogs.push({ instance, time: now, data });
+
+  // Actualizar la gráfica con el nuevo estado de la instancia
+  updateChart(instance, isActive);
+}
+
+// Actualizar los datasets de la gráfica al cargar nuevas instancias
+function updateChartDatasets() {
+  chartData.datasets = instances.map(instance => ({
+    label: `${instance.host}:${instance.port}`,
+    data: [],
+    borderColor: randomColor(),
+    fill: false,
+    tension: 0.1
+  }));
+  statusChart.update();
+}
+
+// Actualizar la gráfica con el nuevo estado de una instancia
+function updateChart(instance, isActive) {
+  const dataset = chartData.datasets.find(d => d.label === `${instance.host}:${instance.port}`);
+  if (dataset) {
+    const now = new Date();
+    dataset.data.push({
+      x: now,
+      y: isActive ? 1 : 0  // 1 para activo, 0 para inactivo
+    });
+
+    chartData.labels.push(now);
+    statusChart.update();
+  }
+}
+
+// Función para generar colores aleatorios para las líneas del gráfico
+function randomColor() {
+  const r = Math.floor(Math.random() * 255);
+  const g = Math.floor(Math.random() * 255);
+  const b = Math.floor(Math.random() * 255);
+  return `rgb(${r},${g},${b})`;
+}
+
+// WebSocket: recibir nuevas instancias registradas en tiempo real
+ws.onmessage = (message) => {
+  const data = JSON.parse(message.data);
+  if (data.data) {
+    instances.push(data.data);
+    updateInstancesTable();
+    updateChartDatasets();
+  }
+};
+
+// Obtener las instancias iniciales cuando la página cargue
+window.onload = fetchInstances;

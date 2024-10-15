@@ -72,7 +72,7 @@ export default {
       this.isSubmitting = true;
 
       try {
-        const response = await fetch('http://192.168.137.128:4000/enviar-marcar', {
+        const response = await fetch('http://192.168.137.243:4000/enviar-marcar', {
           method: 'POST',
           body: formData,
         });
