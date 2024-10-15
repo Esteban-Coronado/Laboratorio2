@@ -67,9 +67,6 @@ const sendToInstance = async (formData, instance) => {
     );
     return response;
   } catch (error) {
-<<<<<<< HEAD
-    throw new Error(`Instancia en puerto ${instance.port} no está funcionando`);
-=======
     console.error(`Instancia en puerto ${instance.port} falló, agregando a lista de caídas`);
     fallenInstances.push(instance);
 
@@ -102,12 +99,8 @@ const healthCheckFallenInstances = async () => {
     } catch (error) {
       console.log(`Instancia en puerto ${instance.port} sigue caída`);
     }
->>>>>>> origin/NicolasDev
   }
-};
 
-<<<<<<< HEAD
-=======
   fallenInstances = fallenInstances.filter(
     instance => !healthyInstances.some(
       healthy => healthy.host === instance.host && healthy.port === instance.port
@@ -117,7 +110,6 @@ const healthCheckFallenInstances = async () => {
 
 setInterval(healthCheckFallenInstances, 5000);
 
->>>>>>> origin/NicolasDev
 app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).send('No se ha subido ninguna imagen');
@@ -133,27 +125,8 @@ app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
   formData.append('image', req.file.buffer, req.file.originalname);
   formData.append('watermark', watermark);
 
-<<<<<<< HEAD
-  let instance = getNextInstance();
-  let attempts = 0;
-
-  while (attempts < instances.length) {
-    try {
-      const response = await sendToInstance(formData, instance);
-      res.set('Content-Type', 'image/png');
-      return res.send(Buffer.from(response.data));
-    } catch (error) {
-      console.error(error.message);
-      attempts++;
-      instance = getNextInstance();
-      if (attempts >= instances.length) {
-        return res.status(503).send('No hay instancias funcionando');
-      }
-    }
-=======
   if (instances.length === fallenInstances.length) {
     return res.status(503).send('No hay instancias disponibles, todas las instancias están caídas');
->>>>>>> origin/NicolasDev
   }
 
   let instance = getNextInstance();
@@ -193,11 +166,7 @@ const connectWebSocket = () => {
         port: parsedData.data.port
       };
 
-<<<<<<< HEAD
-      if (!instances.some(instance => instance.host === newInstance.host && instance.port === newInstance.port)) {
-=======
       if (!instances.some(instance => instance.host === newInstance.host && newInstance.port === instance.port)) {
->>>>>>> origin/NicolasDev
         instances.push(newInstance);
       }
     }
