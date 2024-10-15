@@ -13,13 +13,13 @@ const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
   console.log('Nuevo cliente conectado al WebSocket');
-  ws.send(JSON.stringify({data: instances }));
+  ws.send(JSON.stringify({ data: instances })); 
 });
 
 const notifyClients = (instance) => {
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({data: instance}));
+      client.send(JSON.stringify({ data: instance }));
     }
   });
 };
@@ -42,7 +42,7 @@ app.post('/register', (req, res) => {
   
   notifyClients(newInstance);
   
-  res.status(200).send('Instancia registrada');
+  res.status(200).json({ message: 'Instancia registrada', instances });
 });
 
 app.get('/instances', (req, res) => {

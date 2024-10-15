@@ -25,7 +25,7 @@ const fetchInstances = async () => {
   try {
     const response = await axios.get(`${discoveryServerUrl}/instances`);
     instances = response.data.map(instance => ({
-      host: instance.host, 
+      host: instance.host,
       port: instance.port
     }));
     console.log('Instancias cargadas:', instances);
@@ -43,13 +43,26 @@ const getNextInstance = () => {
   return instance;
 };
 
-app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
-  const instance = getNextInstance();
-
-  if (!instance) {
-    return res.status(503).send('No hay instancias disponibles');
+const sendToInstance = async (formData, instance) => {
+  try {
+    const response = await axios.post(
+      `http://${instance.host}:${instance.port}/marcar`,
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          'Content-Length': formData.getLengthSync()
+        },
+        responseType: 'arraybuffer'
+      }
+    );
+    return response;
+  } catch (error) {
+    throw new Error(`Instancia en puerto ${instance.port} no está funcionando`);
   }
+};
 
+app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).send('No se ha subido ninguna imagen');
   }
@@ -64,23 +77,22 @@ app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
   formData.append('image', req.file.buffer, req.file.originalname);
   formData.append('watermark', watermark);
 
-  try {
-    const response = await axios.post(
-      `http://${instance.host}:${instance.port}/marcar`,
-      formData,
-      {
-        headers: {
-          ...formData.getHeaders(),
-          'Content-Length': formData.getLengthSync()
-        },
-        responseType: 'arraybuffer'
+  let instance = getNextInstance();
+  let attempts = 0;
+
+  while (attempts < instances.length) {
+    try {
+      const response = await sendToInstance(formData, instance);
+      res.set('Content-Type', 'image/png');
+      return res.send(Buffer.from(response.data));
+    } catch (error) {
+      console.error(error.message);
+      attempts++;
+      instance = getNextInstance();
+      if (attempts >= instances.length) {
+        return res.status(503).send('No hay instancias funcionando');
       }
-    );
-    res.set('Content-Type', 'image/png');
-    res.send(Buffer.from(response.data));
-  } catch (error) {
-    console.error('Error al redirigir la solicitud:', error.message);
-    res.status(500).send('Error al procesar la imagen');
+    }
   }
 });
 
@@ -96,14 +108,18 @@ const connectWebSocket = () => {
 
     if (Array.isArray(parsedData.data)) {
       instances = parsedData.data.map(instance => ({
-        host: instance.host, 
+        host: instance.host,
         port: instance.port
       }));
     } else if (typeof parsedData.data === 'object') {
-      instances = [{
-        host: parsedData.data.host, 
+      const newInstance = {
+        host: parsedData.data.host,
         port: parsedData.data.port
-      }];
+      };
+
+      if (!instances.some(instance => instance.host === newInstance.host && instance.port === newInstance.port)) {
+        instances.push(newInstance);
+      }
     }
     console.log('Instancias actualizadas:', instances);
   });
@@ -120,7 +136,7 @@ const connectWebSocket = () => {
 
 (async () => {
   await fetchInstances();
-  connectWebSocket();
+  connectWebSocket(); 
 
   app.listen(port, () => {
     console.log(`Load Balancer escuchando en el puerto ${port}`);
