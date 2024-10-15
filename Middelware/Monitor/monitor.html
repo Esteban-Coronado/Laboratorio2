@@ -1,82 +1,33 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitor de Instancias</title>
-
-  <!-- Cargar Chart.js desde CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- Incluir el archivo monitor.js -->
-  <script defer src="monitor.js"></script>
-
-  <style>
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    table, th, td {
-      border: 1px solid black;
-    }
-
-    th, td {
-      padding: 8px;
-      text-align: left;
-    }
-
-    th {
-      background-color: #f2f2f2;
-    }
-
-    .container {
-      width: 80%;
-      margin: 0 auto;
-    }
-
-    canvas {
-      margin-top: 20px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <title>Monitor de Instancias</title>
+    <style>
+        #logs {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Monitor de Instancias</h1>
+    <div class="container mt-5">
+        <h1>Monitor de Instancias</h1>
+        <div class="mb-3">
+            <button id="launchInstance" class="btn btn-primary">Lanzar Instancia</button>
+            <button id="deleteInstance" class="btn btn-danger">Borrar Instancia</button>
+        </div>
+        <h3>Instancias en ejecución</h3>
+        <ul id="instanceList" class="list-group"></ul>
+        <h3>Logs</h3>
+        <div id="logs"></div>
+    </div>
 
-    <h2>Instancias Activas</h2>
-    <table id="instancesTable">
-      <thead>
-        <tr>
-          <th>Host</th>
-          <th>Puerto</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Las filas se insertarán dinámicamente -->
-      </tbody>
-    </table>
-
-    <h2>Logs de Health Checks</h2>
-    <table id="healthLogsTable">
-      <thead>
-        <tr>
-          <th>Hora</th>
-          <th>Host</th>
-          <th>Puerto</th>
-          <th>Status</th>
-          <th>Método</th>
-          <th>URL</th>
-          <th>Payload</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Los logs se insertarán dinámicamente -->
-      </tbody>
-    </table>
-
-    <h2>Estado de las Instancias (Gráfica en Tiempo Real)</h2>
-    <canvas id="statusChart" width="400" height="200"></canvas>
-  </div>
+    <script src="monitor.js"></script>
 </body>
 </html>
