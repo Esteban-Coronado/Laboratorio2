@@ -3,6 +3,7 @@ const cors = require('cors');
 const axios = require('axios');
 const WebSocket = require('ws');
 const multer = require('multer');
+const { spawn } = require('child_process');
 require('dotenv').config();
 const FormData = require('form-data');
 
@@ -11,6 +12,7 @@ const port = process.env.LOADBALANCER_PORT || 4000;
 const discoveryServerUrl = process.env.SERVER_REGISTRY_URL;
 let instances = [];
 let currentIndex = 0;
+let fallenInstances = []; 
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -35,11 +37,18 @@ const fetchInstances = async () => {
 };
 
 const getNextInstance = () => {
-  if (instances.length === 0) {
+  const availableInstances = instances.filter(
+    instance => !fallenInstances.some(
+      fallen => fallen.host === instance.host && fallen.port === instance.port
+    )
+  );
+
+  if (availableInstances.length === 0) {
     return null;
   }
-  const instance = instances[currentIndex];
-  currentIndex = (currentIndex + 1) % instances.length;
+
+  const instance = availableInstances[currentIndex];
+  currentIndex = (currentIndex + 1) % availableInstances.length;
   return instance;
 };
 
@@ -58,9 +67,48 @@ const sendToInstance = async (formData, instance) => {
     );
     return response;
   } catch (error) {
+    console.error(`Instancia en puerto ${instance.port} falló, agregando a lista de caídas`);
+    fallenInstances.push(instance);
+
+    const dockerProcess = spawn('node', ['pushDocker.js']);
+    
+    dockerProcess.stdout.on('data', (data) => {
+      console.log(`STDOUT: ${data}`);
+    });
+    
+    dockerProcess.stderr.on('data', (data) => {
+      console.error(`STDERR: ${data}`);
+    });
+
+    dockerProcess.on('close', (code) => {
+      console.log(`pushDocker.js finalizado con código: ${code}`);
+    });
+
     throw new Error(`Instancia en puerto ${instance.port} no está funcionando`);
   }
 };
+
+const healthCheckFallenInstances = async () => {
+  const healthyInstances = [];
+
+  for (const instance of fallenInstances) {
+    try {
+      await axios.get(`http://${instance.host}:${instance.port}/healthcheck`);
+      console.log(`Instancia en puerto ${instance.port} está funcionando de nuevo`);
+      healthyInstances.push(instance);
+    } catch (error) {
+      console.log(`Instancia en puerto ${instance.port} sigue caída`);
+    }
+  }
+
+  fallenInstances = fallenInstances.filter(
+    instance => !healthyInstances.some(
+      healthy => healthy.host === instance.host && healthy.port === instance.port
+    )
+  );
+};
+
+setInterval(healthCheckFallenInstances, 5000);
 
 app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
   if (!req.file) {
@@ -77,23 +125,24 @@ app.post('/enviar-marcar', upload.single('image'), async (req, res) => {
   formData.append('image', req.file.buffer, req.file.originalname);
   formData.append('watermark', watermark);
 
-  let instance = getNextInstance();
-  let attempts = 0;
+  if (instances.length === fallenInstances.length) {
+    return res.status(503).send('No hay instancias disponibles, todas las instancias están caídas');
+  }
 
-  while (attempts < instances.length) {
+  let instance = getNextInstance();
+
+  while (instance) {
     try {
       const response = await sendToInstance(formData, instance);
       res.set('Content-Type', 'image/png');
       return res.send(Buffer.from(response.data));
     } catch (error) {
       console.error(error.message);
-      attempts++;
       instance = getNextInstance();
-      if (attempts >= instances.length) {
-        return res.status(503).send('No hay instancias funcionando');
-      }
     }
   }
+
+  return res.status(503).send('No hay instancias disponibles');
 });
 
 const connectWebSocket = () => {
@@ -117,7 +166,7 @@ const connectWebSocket = () => {
         port: parsedData.data.port
       };
 
-      if (!instances.some(instance => instance.host === newInstance.host && instance.port === newInstance.port)) {
+      if (!instances.some(instance => instance.host === newInstance.host && newInstance.port === instance.port)) {
         instances.push(newInstance);
       }
     }
