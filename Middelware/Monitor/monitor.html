@@ -1,31 +1,50 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <title>Monitor de Instancias</title>
-    <style>
-        #logs {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            padding: 10px;
-            margin-top: 20px;
-        }
-    </style>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="./styles.css"> 
 </head>
 <body>
     <div class="container mt-5">
-        <h1>Monitor de Instancias</h1>
-        <div class="mb-3">
-            <button id="launchInstance" class="btn btn-primary">Lanzar Instancia</button>
-            <button id="deleteInstance" class="btn btn-danger">Borrar Instancia</button>
+        <h1 class="text-center">Monitor de Instancias</h1>
+
+        <div class="text-right mb-3">
+            <button class="btn btn-success" onclick="launchInstance()">Lanzar Instancia</button>
         </div>
-        <h3>Instancias en ejecución</h3>
-        <ul id="instanceList" class="list-group"></ul>
-        <h3>Logs</h3>
-        <div id="logs"></div>
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Host</th>
+                    <th>Puerto</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="instanceTable">
+                <!-- Aquí se insertarán las instancias dinámicamente -->
+            </tbody>
+        </table>
+
+        <h2 class="mt-5">Logs de Instancias</h2>
+        <table class="table table-bordered" id="logsTable">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Estado</th>
+                    <th>Método</th>
+                    <th>URL</th>
+                    <th>Fecha</th>
+                    <th>Payload</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Aquí se insertarán los logs dinámicamente -->
+            </tbody>
+        </table>
     </div>
 
     <script src="monitor.js"></script>

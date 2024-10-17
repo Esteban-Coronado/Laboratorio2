@@ -1,4 +1,4 @@
-<template>
+<template> 
   <div id="app">
     <div class="container">
       <h1>Generar Marca de Agua</h1>
@@ -72,7 +72,7 @@ export default {
       this.isSubmitting = true;
 
       try {
-        const response = await fetch('http://192.168.137.243:4000/enviar-marcar', {
+        const response = await fetch(process.env.VUE_APP_API_URL, {
           method: 'POST',
           body: formData,
         });
