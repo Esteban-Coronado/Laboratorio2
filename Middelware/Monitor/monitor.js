@@ -1,96 +1,137 @@
 const express = require('express');
-const http = require('http');
+const path = require('path');
 const WebSocket = require('ws');
-const socketIo = require('socket.io');
+const http = require('http');
+require('dotenv').config();
+const axios = require('axios');
+
+// const PushDocker = require('./pushDocker');
 
 // Configuración del servidor Express
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server); // Inicializamos Socket.IO
+const io = require('socket.io')(server); // Inicializamos Socket.IO
 
-const instances = [];  // Estado de las instancias
-let logs = [];         // Almacenamos los logs de las peticiones
+const MONITOR_PORT = process.env.MONITOR_PORT || 7000;
+const SERVER_REGISTRY_URL = process.env.SERVER_REGISTRY_URL || 'http://localhost:6000';
 
-require('dotenv').config();
+let logs = [];
+let instanceData = [];
 
-// Middleware para procesar datos JSON en las solicitudes POST
-app.use(express.json());
 
-// Función para reconectar el WebSocket
-const connectWebSocket = () => {
-  const serverRegistryUrl = process.env.SERVER_REGISTRY_URL.replace('http://', 'ws://');
-  const ws = new WebSocket(serverRegistryUrl);
-
-  // Cuando el WebSocket recibe un mensaje del ServerRegistry, actualiza las instancias
-  ws.on('message', (data) => {
-    const parsedData = JSON.parse(data);
-    instances.length = 0; // Limpiamos las instancias previas
-    instances.push(...parsedData.data); // Actualizamos con las nuevas instancias
-
-    // Enviamos la actualización de instancias a todos los clientes conectados
-    io.emit('instances', instances);
-  });
-
-  // Cuando el WebSocket se cierra, reconecta automáticamente
-  ws.on('close', () => {
-    console.log('Conexión WebSocket cerrada, intentando reconectar...');
-    setTimeout(connectWebSocket, 3000); // Intentar reconectar en 3 segundos
-  });
-
-  ws.on('error', (error) => {
-    console.error('Error en WebSocket:', error.message);
-  });
-};
-
-// Iniciar la conexión WebSocket
-connectWebSocket();
-
-// Función para registrar los logs de peticiones
-const addLog = (log) => {
-  logs.push(log);
-  if (logs.length > 100) logs.shift(); // Limita el número de logs a 100
-  io.emit('logs', logs); // Emitimos los logs actualizados a los clientes
-};
-
-// Escuchar eventos del LoadBalancer para monitorear las peticiones
-app.post('/log', (req, res) => {
-  const { instance, endpoint, status } = req.body;
-
-  if (!instance || !endpoint || !status) {
-    return res.status(400).send('Faltan datos para el log');
-  }
-
-  const logEntry = {
-    timestamp: new Date(),
-    instance,
-    endpoint,
-    status
-  };
-
-  addLog(logEntry); // Añadimos el log
-  res.status(200).send('Log registrado');
-});
-
-// Servir la interfaz de monitorización en tiempo real
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/monitor.html');
+    res.sendFile(path.join(__dirname, 'monitor.html'));
 });
 
-// Servidor Socket.IO para emitir actualizaciones a los clientes conectados
+// Configura el servidor Socket.IO
 io.on('connection', (socket) => {
-  console.log('Nuevo cliente conectado');
-  
-  // Enviar el estado actual de las instancias y los logs al nuevo cliente
-  socket.emit('instances', instances);
-  socket.emit('logs', logs);
+    console.log('Nuevo cliente conectado.');
 
-  socket.on('disconnect', () => {
-    console.log('Cliente desconectado');
-  });
+    // Envía un mensaje al cliente cuando se conecta
+    socket.emit('message', 'Bienvenido al servidor Socket.IO!');
+
+    // Maneja la desconexión del cliente
+    socket.on('disconnect', () => {
+        console.log('Cliente desconectado.');
+    });
 });
 
-// Iniciar el servidor de monitorización
-const port = process.env.MONITOR_PORT || 5000;
-server.listen(port, () => {
-  console.log(`Monitor escuchando en el puerto ${port}`);
+// Endpoint para obtener logs
+const fetchLogs = async () => {
+    try {
+        const response = await axios.get(`${SERVER_REGISTRY_URL}/logs`);
+        const data = response.data;
+
+        logs = []; // Limpiar el array para evitar duplicados
+
+        data.forEach(instance => {
+            logs.push({
+                host: instance.host,
+                port: instance.port,
+                logs: instance.logs || 'No se pudieron obtener los logs',
+                error: instance.error || null
+            });
+        });
+
+        console.log(logs); // Muestra los logs en la consola
+
+        // Emitir logs a los clientes conectados
+        io.emit('updateLogs', logs);
+    } catch (error) {
+        console.error('Error al recuperar los logs:', error.message);
+    }
+};
+
+const fetchInstanceData = async () => {
+    try {
+        const response = await axios.get(`${SERVER_REGISTRY_URL}/checkInstances`);
+        instanceData = response.data;
+
+        // Emitir los datos de las instancias a los clientes conectados
+        io.emit('updateInstances', instanceData);
+    } catch (error) {
+        console.error('Error al recuperar el estado de las instancias:', error.message);
+    }
+};
+
+// Endpoint para lanzar una nueva instancia
+// app.post('/launch-instance', async (req, res) => {
+//     try {
+//         const randomPort = PushDocker.getRandomPort(5000, 6000, []); // Obtén un puerto aleatorio
+//         console.log(`Lanzando nueva instancia en el puerto: ${randomPort}`);
+
+//         // Llama a PushDocker para crear la instancia
+//         await PushDocker.conn.on('ready', () => {
+//             PushDocker.conn.exec(`docker run -d -p ${randomPort}:3000 microservice`, (err, stream) => {
+//                 if (err) {
+//                     return res.status(500).send(`Error al ejecutar el comando Docker: ${err.message}`);
+//                 }
+
+//                 stream.on('close', async (code, signal) => {
+//                     console.log(`Comando Docker ejecutado con código: ${code} y señal: ${signal}`);
+//                     // Registrar la instancia
+//                     await PushDocker.registerInstance('localhost', randomPort);
+//                     res.status(200).send('Instancia lanzada con éxito');
+//                     PushDocker.conn.end();  // Terminar conexión SSH
+//                 });
+//             });
+//         }).connect({
+//             host: PushDocker.host,
+//             port: 22,
+//             username: PushDocker.username,
+//             password: PushDocker.password,
+//         });
+//     } catch (error) {
+//         console.error(`Error al lanzar la instancia: ${error.message}`);
+//         res.status(500).send(`Error al lanzar la instancia: ${error.message}`);
+//     }
+// });
+
+// Inicia el servidor en el puerto definido
+server.listen(MONITOR_PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${MONITOR_PORT}`);
+    fetchLogs(); // Llama a fetchLogs al iniciar
+    setInterval(fetchLogs, 5000);
+    setInterval(fetchInstanceData, 1000);
 });
+
+
+
+
+
+
+// // Lanzar una nueva instancia
+// async function launchInstance() {
+//     try {
+//         const response = await fetch(`${SERVER_REGISTRY_URL}/launch-instance`, { method: 'POST' });
+//         if (response.ok) {
+//             console.log('Nueva instancia lanzada');
+//             // Si se quiere obtener el healthcheck inmediatamente, se puede agregar aquí
+//             // await fetchHealthcheck(host, randomPort);
+//         } else {
+//             console.error('Error al lanzar instancia:', response.statusText);
+//         }
+//     } catch (error) {
+//         console.error('Error al lanzar instancia:', error);
+//     }
+// }

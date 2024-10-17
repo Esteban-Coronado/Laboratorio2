@@ -1,139 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitor</title>
-
-  <!-- Bootstrap CSS -->
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-
-  <!-- Enlace a tu archivo CSS -->
-  <link rel="stylesheet" href="styles.css">
-
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- Socket.IO -->
-  <script src="/socket.io/socket.io.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Instancias</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="./styles.css"> 
 </head>
-
 <body>
-  <div class="container">
-    <h1>Monitor de Estado de Instancias</h1>
+    <div class="container mt-5">
+        <h1 class="text-center">Monitor de Instancias</h1>
 
-    <div class="text-center">
-      <button id="createInstanceBtn" class="btn btn-success">Crear Instancia</button>
-      <button id="deleteInstanceBtn" class="btn btn-danger">Eliminar Instancia</button>
-    </div>
+        <div class="text-right mb-3">
+            <button class="btn btn-success" onclick="launchInstance()">Lanzar Instancia</button>
+        </div>
 
-    <div id="instances" class="mt-5">
-      <h2>Instancias Activas</h2>
-      <div class="table-responsive">
-        <table class="table table-dark table-striped table-hover">
-          <thead>
-            <tr>
-              <th>IP</th>
-              <th>Puerto</th>
-              <th>Estado</th> <!-- Nueva columna para estado visual -->
-            </tr>
-          </thead>
-          <tbody id="instanceTable"></tbody>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Host</th>
+                    <th>Puerto</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="instanceTable">
+                <!-- Aquí se insertarán las instancias dinámicamente -->
+            </tbody>
         </table>
-      </div>
-    </div>
 
-    <div id="logs" class="mt-5">
-      <h2>Logs de Peticiones</h2>
-      <div class="table-responsive">
-        <table class="table table-dark table-striped table-hover">
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>Instancia</th>
-              <th>Endpoint</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="logTable"></tbody>
+        <h2 class="mt-5">Logs de Instancias</h2>
+        <table class="table table-bordered" id="logsTable">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Estado</th>
+                    <th>Método</th>
+                    <th>URL</th>
+                    <th>Fecha</th>
+                    <th>Payload</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Aquí se insertarán los logs dinámicamente -->
+            </tbody>
         </table>
-      </div>
     </div>
 
-    <!-- Canvas for Chart.js -->
-    <canvas id="statusChart" class="mt-5"></canvas>
-  </div>
-
-  <script>
-    const socket = io();
-    const instanceStatus = {}; // Objeto para almacenar el estado de las instancias
-
-    // Actualizar la tabla de instancias en tiempo real
-    socket.on('instances', (instances) => {
-      const instanceTable = document.getElementById('instanceTable');
-      instanceTable.innerHTML = '';
-      instances.forEach(instance => {
-        const row = document.createElement('tr');
-        const statusClass = instance.active ? 'text-success' : 'text-danger'; // Estado visual
-        row.innerHTML = `<td>${instance.ip}</td><td>${instance.port}</td><td class="${statusClass}">${instance.active ? 'Activa' : 'Inactiva'}</td>`;
-        instanceTable.appendChild(row);
-        instanceStatus[`${instance.ip}:${instance.port}`] = instance.active; // Actualiza el estado
-      });
-      updateChart(); // Actualizar gráfica
-    });
-
-    // Actualizar la tabla de logs en tiempo real
-    socket.on('logs', (logs) => {
-      const logTable = document.getElementById('logTable');
-      logTable.innerHTML = '';
-      logs.forEach(log => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${new Date(log.timestamp).toLocaleString()}</td>
-          <td>${log.instance}</td>
-          <td>${log.endpoint}</td>
-          <td>${log.status}</td>`;
-        logTable.appendChild(row);
-      });
-    });
-
-    // Configuración de la gráfica
-    const ctx = document.getElementById('statusChart').getContext('2d');
-    const statusChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: ['Instancias Activas', 'Instancias Inactivas'],
-        datasets: [{
-          label: 'Estado de Instancias',
-          data: [0, 0],
-          backgroundColor: ['#00ff00', '#ff0000'],
-          borderColor: ['#00cc00', '#cc0000'],
-          borderWidth: 1
-        }]
-      },
-      options: {
-        animation: {
-          duration: 1000, // Animación suave
-          easing: 'easeInOutQuad'
-        },
-        scales: {
-          y: {
-            beginAtZero: true
-          }
-        }
-      }
-    });
-
-    // Actualizar la gráfica según el estado de las instancias
-    function updateChart() {
-      const activeCount = Object.keys(instanceStatus).filter(key => instanceStatus[key]).length;
-      const inactiveCount = Object.keys(instanceStatus).length - activeCount;
-
-      statusChart.data.datasets[0].data = [activeCount, inactiveCount];
-      statusChart.update();
-    }
-  </script>
+    <script src="monitor.js"></script>
 </body>
-
 </html>
