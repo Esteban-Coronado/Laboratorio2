@@ -6,7 +6,7 @@ dotenv.config();
 
 const conn = new Client();
 const host = process.env.HOST; 
-const username = "andress"; 
+const username = "esteban"; 
 const password = process.env.PASSWORD;
 
 const discoveryServerUrl = process.env.SERVER_REGISTRY_URL; 
@@ -34,7 +34,7 @@ function getRandomPort(min, max, usedPorts) {
 
 module.exports = {
     getRandomPort,
-    conn,  // Otros objetos como `conn` también deben exportarse si los estás utilizando
+    conn,
     registerInstance,
     host,
     username,

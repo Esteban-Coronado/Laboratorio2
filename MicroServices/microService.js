@@ -10,7 +10,7 @@ const app = express();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 let imageMarkCount = 0;
-let requestTimes = []; // Array para almacenar las horas de las peticiones
+let requestTimes = [];
 
 const processImageWithWatermark = async (imageBuffer, watermarkText) => {
     try {
