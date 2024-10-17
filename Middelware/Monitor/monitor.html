@@ -1,52 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor de Instancias</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="./styles.css"> 
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor de Instancias</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script src="/socket.io/socket.io.js"></script>
+
 </head>
+
 <body>
-    <div class="container mt-5">
-        <h1 class="text-center">Monitor de Instancias</h1>
+  <div class="container mt-5">
+    <h1 class="text-center">Monitor de Instancias</h1>
 
-        <div class="text-right mb-3">
-            <button class="btn btn-success" onclick="launchInstance()">Lanzar Instancia</button>
-        </div>
-
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>Host</th>
-                    <th>Puerto</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="instanceTable">
-                <!-- Aquí se insertarán las instancias dinámicamente -->
-            </tbody>
-        </table>
-
-        <h2 class="mt-5">Logs de Instancias</h2>
-        <table class="table table-bordered" id="logsTable">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Estado</th>
-                    <th>Método</th>
-                    <th>URL</th>
-                    <th>Fecha</th>
-                    <th>Payload</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Aquí se insertarán los logs dinámicamente -->
-            </tbody>
-        </table>
+    <div class="text-right mb-3">
+      <button class="btn btn-success" id="launch-instance-btn">Lanzar Instancia</button>
     </div>
 
-    <script src="monitor.js"></script>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Host</th>
+          <th>Puerto</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="instanceTable">
+        <!-- Aquí se insertarán las instancias dinámicamente -->
+      </tbody>
+    </table>
+
+    <h2 class="mt-5">Logs de Instancias</h2>
+    <table class="table table-bordered" id="logsTable">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Estado</th>
+          <th>Método</th>
+          <th>URL</th>
+          <th>Fecha</th>
+          <th>Payload</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Aquí se insertarán los logs dinámicamente -->
+      </tbody>
+    </table>
+
+    <div class="container mt-5">
+      <h2>Estado de las Instancias</h2>
+      <canvas id="instanceStatusChart" width="400" height="200"></canvas>
+    </div>
+
+  </div>
+
 </body>
+
+<script>
+  // Conectar Socket.IO
+  const socket = io();
+
+  // Inicializar el gráfico
+  let instanceChart;
+
+  socket.on('updateInstances', (instances) => {
+    const instanceTableBody = document.getElementById('instanceTable');
+    instanceTableBody.innerHTML = ''; // Limpiar tabla antes de agregar
+
+    const statusLabels = ['Activo', 'Inactivo'];
+    let activeCount = 0;
+    let inactiveCount = 0;
+
+    instances.forEach(instance => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${instance.host}</td>
+        <td>${instance.port}</td>
+        <td>${instance.status}</td>
+      `;
+      instanceTableBody.appendChild(row);
+      if (instance.status === 'Activo') {
+        activeCount++;
+      } else {
+        inactiveCount++;
+      }
+    });
+
+    // Actualizar el gráfico con la nueva data
+    const instanceData = {
+      labels: statusLabels,
+      datasets: [{
+        label: 'Instancias',
+        data: [activeCount, inactiveCount],
+        backgroundColor: [
+          'rgba(75, 192, 192, 0.2)', // Verde para Activo
+          'rgba(255, 99, 132, 0.2)'  // Rojo para Inactivo
+        ],
+        borderColor: [
+          'rgba(75, 192, 192, 1)',   // Verde para Activo
+          'rgba(255, 99, 132, 1)'    // Rojo para Inactivo
+        ],
+        borderWidth: 1
+      }]
+    };
+
+    const config = {
+      type: 'bar',
+      data: instanceData,
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    };
+
+    // Si ya existe el gráfico, destrúyelo antes de crear uno nuevo
+    if (instanceChart) {
+      instanceChart.destroy();
+    }
+
+    // Crear gráfico
+    const ctx = document.getElementById('instanceStatusChart').getContext('2d');
+    instanceChart = new Chart(ctx, config);
+  });
+
+  // Escuchar el evento 'updateLogs' para actualizar la tabla de logs
+  socket.on('updateLogs', (logs) => {
+    const logsTableBody = document.getElementById('logsTable').getElementsByTagName('tbody')[0];
+    logsTableBody.innerHTML = '';
+
+    logs.forEach(log => {
+      const row = document.createElement('tr');
+      const payloadList = Object.entries(log.logs.payload).map(([key, value]) => `<li><strong>${key}:</strong> ${value}</li>`).join('');
+      row.innerHTML = `
+            <td>${new Date().toISOString()}</td>
+            <td>${log.logs.status}</td>
+            <td>${log.logs.method}</td>
+            <td>${log.logs.url}</td>
+            <td>${log.logs.date}</td>
+            <td><ul>${payloadList}</ul></td> <!-- Mostrar payload como lista -->
+        `;
+      logsTableBody.appendChild(row);
+    });
+  });
+</script>
+<!-- <script>
+  document.getElementById('launch-instance-btn').addEventListener('click', () => {
+    fetch('/launch-instance', { 
+      method: 'POST',
+    })
+    .then(response => response.text())
+    .then(data => {
+      alert(data);  // Muestra un mensaje con la respuesta del servidor
+      console.log('Instancia lanzada:', data);
+    })
+    .catch(error => {
+      console.error('Error al lanzar la instancia:', error);
+      alert('Error al lanzar la instancia');
+    });
+  });
+</script> -->
+
 </html>
