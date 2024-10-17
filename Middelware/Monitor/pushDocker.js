@@ -24,13 +24,21 @@ const registerInstance = async (host, port) => {
     }
 };
 
-const getRandomPort = (min, max, usedPorts) => {
+function getRandomPort(min, max, usedPorts) {
     let port;
     do {
         port = Math.floor(Math.random() * (max - min + 1)) + min;
     } while (usedPorts.includes(port));
-    usedPorts.push(port);
     return port;
+}
+
+module.exports = {
+    getRandomPort,
+    conn,  // Otros objetos como `conn` también deben exportarse si los estás utilizando
+    registerInstance,
+    host,
+    username,
+    password
 };
 
 const usedPorts = [];

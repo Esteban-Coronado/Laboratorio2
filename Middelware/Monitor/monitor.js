@@ -5,7 +5,7 @@ const http = require('http');
 require('dotenv').config();
 const axios = require('axios');
 
-// const PushDocker = require('./pushDocker');
+const PushDocker = require('./pushDocker');
 
 // Configuración del servidor Express
 const app = express();
@@ -75,37 +75,38 @@ const fetchInstanceData = async () => {
 };
 
 // Endpoint para lanzar una nueva instancia
-// app.post('/launch-instance', async (req, res) => {
-//     try {
-//         const randomPort = PushDocker.getRandomPort(5000, 6000, []); // Obtén un puerto aleatorio
-//         console.log(`Lanzando nueva instancia en el puerto: ${randomPort}`);
+app.post('/launch-instance', async (req, res) => {
+    try {
+        const randomPort = PushDocker.getRandomPort(5000, 6000, []); // Asegúrate de que la función esté disponible
+        console.log(`Lanzando nueva instancia en el puerto: ${randomPort}`);
 
-//         // Llama a PushDocker para crear la instancia
-//         await PushDocker.conn.on('ready', () => {
-//             PushDocker.conn.exec(`docker run -d -p ${randomPort}:3000 microservice`, (err, stream) => {
-//                 if (err) {
-//                     return res.status(500).send(`Error al ejecutar el comando Docker: ${err.message}`);
-//                 }
+        // Llama a PushDocker para crear la instancia
+        await PushDocker.conn.on('ready', () => {
+            PushDocker.conn.exec(`docker run -d -p ${randomPort}:3000 microservice`, (err, stream) => {
+                if (err) {
+                    return res.status(500).send(`Error al ejecutar el comando Docker: ${err.message}`);
+                }
 
-//                 stream.on('close', async (code, signal) => {
-//                     console.log(`Comando Docker ejecutado con código: ${code} y señal: ${signal}`);
-//                     // Registrar la instancia
-//                     await PushDocker.registerInstance('localhost', randomPort);
-//                     res.status(200).send('Instancia lanzada con éxito');
-//                     PushDocker.conn.end();  // Terminar conexión SSH
-//                 });
-//             });
-//         }).connect({
-//             host: PushDocker.host,
-//             port: 22,
-//             username: PushDocker.username,
-//             password: PushDocker.password,
-//         });
-//     } catch (error) {
-//         console.error(`Error al lanzar la instancia: ${error.message}`);
-//         res.status(500).send(`Error al lanzar la instancia: ${error.message}`);
-//     }
-// });
+                stream.on('close', async (code, signal) => {
+                    console.log(`Comando Docker ejecutado con código: ${code} y señal: ${signal}`);
+                    // Registrar la instancia
+                    await PushDocker.registerInstance('localhost', randomPort);
+                    res.status(200).send('Instancia lanzada con éxito');
+                    PushDocker.conn.end();  // Terminar conexión SSH
+                });
+            });
+        }).connect({
+            host: PushDocker.host,
+            port: 22,
+            username: PushDocker.username,
+            password: PushDocker.password,
+        });
+    } catch (error) {
+        console.error(`Error al lanzar la instancia: ${error.message}`);
+        res.status(500).send(`Error al lanzar la instancia: ${error.message}`);
+    }
+});
+
 
 // Inicia el servidor en el puerto definido
 server.listen(MONITOR_PORT, () => {
