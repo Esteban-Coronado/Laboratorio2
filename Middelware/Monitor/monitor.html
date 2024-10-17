@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monitor de Instancias</title>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -19,6 +18,7 @@
 
     <div class="text-right mb-3">
       <button class="btn btn-success" id="launch-instance-btn">Lanzar Instancia</button>
+      <button class="btn btn-danger" id="delete-instance-btn">Borrar Instancia</button> 
     </div>
 
     <table class="table table-bordered">
@@ -30,7 +30,7 @@
         </tr>
       </thead>
       <tbody id="instanceTable">
-        <!-- Aquí se insertarán las instancias dinámicamente -->
+       
       </tbody>
     </table>
 
@@ -47,7 +47,7 @@
         </tr>
       </thead>
       <tbody>
-        <!-- Aquí se insertarán los logs dinámicamente -->
+
       </tbody>
     </table>
 
@@ -61,15 +61,15 @@
 </body>
 
 <script>
-  // Conectar Socket.IO
+ 
   const socket = io();
 
-  // Inicializar el gráfico
+  
   let instanceChart;
 
   socket.on('updateInstances', (instances) => {
     const instanceTableBody = document.getElementById('instanceTable');
-    instanceTableBody.innerHTML = ''; // Limpiar tabla antes de agregar
+    instanceTableBody.innerHTML = ''; 
 
     const statusLabels = ['Activo', 'Inactivo'];
     let activeCount = 0;
@@ -90,19 +90,19 @@
       }
     });
 
-    // Actualizar el gráfico con la nueva data
+    
     const instanceData = {
       labels: statusLabels,
       datasets: [{
         label: 'Instancias',
         data: [activeCount, inactiveCount],
         backgroundColor: [
-          'rgba(75, 192, 192, 0.2)', // Verde para Activo
-          'rgba(255, 99, 132, 0.2)'  // Rojo para Inactivo
+          'rgba(75, 192, 192, 0.2)', 
+          'rgba(255, 99, 132, 0.2)'  
         ],
         borderColor: [
-          'rgba(75, 192, 192, 1)',   // Verde para Activo
-          'rgba(255, 99, 132, 1)'    // Rojo para Inactivo
+          'rgba(75, 192, 192, 1)',   
+          'rgba(255, 99, 132, 1)'    
         ],
         borderWidth: 1
       }]
@@ -120,17 +120,17 @@
       }
     };
 
-    // Si ya existe el gráfico, destrúyelo antes de crear uno nuevo
+   
     if (instanceChart) {
       instanceChart.destroy();
     }
 
-    // Crear gráfico
+    
     const ctx = document.getElementById('instanceStatusChart').getContext('2d');
     instanceChart = new Chart(ctx, config);
   });
 
-  // Escuchar el evento 'updateLogs' para actualizar la tabla de logs
+ 
   socket.on('updateLogs', (logs) => {
     const logsTableBody = document.getElementById('logsTable').getElementsByTagName('tbody')[0];
     logsTableBody.innerHTML = '';
@@ -150,14 +150,14 @@
     });
   });
 
-  // Evento para el botón de lanzar instancia
+  
   document.getElementById('launch-instance-btn').addEventListener('click', () => {
     fetch('/launch-instance', { 
       method: 'POST',
     })
     .then(response => response.text())
     .then(data => {
-      alert(data);  // Muestra un mensaje con la respuesta del servidor
+      alert(data);  
       console.log('Instancia lanzada:', data);
     })
     .catch(error => {
@@ -165,6 +165,23 @@
       alert('Error al lanzar la instancia');
     });
   });
+
+  
+  document.getElementById('delete-instance-btn').addEventListener('click', () => {
+    fetch('/delete-instance', { 
+      method: 'POST',
+    })
+    .then(response => response.text())
+    .then(data => {
+      alert(data);  
+      console.log('Instancia borrada:', data);
+    })
+    .catch(error => {
+      console.error('Error al borrar la instancia:', error);
+      alert('Error al borrar la instancia');
+    });
+});
+
 </script>
 
 </html>

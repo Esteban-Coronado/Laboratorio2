@@ -59,3 +59,11 @@ conn.on('ready', () => {
     username: username,
     password: password,
 });
+
+
+module.exports = {
+    conn, 
+    host,
+    username,
+    password
+};
